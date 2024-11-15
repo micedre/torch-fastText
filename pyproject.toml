@@ -25,9 +25,10 @@ build-backend = "setuptools.build_meta"
 # All the following settings are optional:
 where = ["src"]  # ["."] by default
 include = ["torch-fasttext*"]  # ["*"] by default
-exclude = ["]  # empty by default
+exclude = []  # empty by default
 namespaces = false  # true by default
 
 [tool.ruff]
 line-length = 100
 extend-include = ["*.ipynb"]
+
