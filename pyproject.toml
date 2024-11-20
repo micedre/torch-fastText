@@ -7,7 +7,7 @@ extend-include = ["*.ipynb"]
 name = "torch-fasttext"
 version = "0.0.1"
 dependencies = [
-    
+    'pytorch_lightning',
 ]
 description = "An implementation of the https://github.com/facebookresearch/fastText supervised learning algorithm for text classification using Pytorch."
 readme = "README.md"
@@ -31,6 +31,6 @@ build-backend = "setuptools.build_meta"
 where = ["src"]  # ["."] by default
 include = ["*"]  # ["*"] by default
 exclude = []  # empty by default
-namespaces = false  # true by default
+namespaces = true  # true by default
 
 
