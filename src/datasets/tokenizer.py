@@ -6,8 +6,7 @@ import ctypes
 from typing import List, Tuple
 
 import numpy as np
-
-from config.preprocess import clean_text_feature
+from preprocess import clean_text_feature, clean_and_tokenize_df
 from utils import tokenized_text_in_tokens
 
 
