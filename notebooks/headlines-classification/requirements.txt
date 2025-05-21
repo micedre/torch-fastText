@@ -1,0 +1,6 @@
+scikit-learn
+torchfasttext
+nltk
+unidecode
+captum
+mlflow
