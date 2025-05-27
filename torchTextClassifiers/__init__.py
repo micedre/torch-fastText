@@ -1,1 +1,1 @@
-from .torchTextClassifiers import torchFastText as torchFastText
+from .torchTextClassifiers import torchTextClassifiers as torchTextClassifiers

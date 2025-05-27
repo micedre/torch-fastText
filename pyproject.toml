@@ -25,7 +25,11 @@ version="0.0.0-dev"
 
 [dependency-groups]
 dev = [
-  "pytest >=8.1.1,<9"
+  "pytest >=8.1.1,<9",
+  "pandas",
+  "scikit-learn",
+  "nltk",
+  "unidecode"
 ]
 
 [project.optional-dependencies]
