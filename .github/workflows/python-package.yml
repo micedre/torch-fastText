@@ -5,7 +5,7 @@ name: Python Tests
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "rename-package" ]
   pull_request:
     branches: [ "main" ]
 
