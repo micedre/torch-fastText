@@ -1,5 +1,5 @@
 [project]
-name = "torchFastText"
+name = "torchTextClassifiers"
 description = "An implementation of the https://github.com/facebookresearch/fastText supervised learning algorithm for text classification using Pytorch."
 authors = [
     { name = "Tom Seimandi", email = "tom.seimandi@gmail.com" },
@@ -36,7 +36,7 @@ line-length = 100
 
 
 [tool.uv.build-backend]
-module-name="torchFastText"
+module-name="torchTextClassifiers"
 module-root = ""
 
 
