@@ -48,7 +48,7 @@ jobs:
          with:
              file: "pyproject.toml"
              key: "project.version"
-             value: "${GITHUB_REF_NAME##v*}"
+             value: ${GITHUB_REF_NAME##v*}
             
        - name: Install build dependencies
          run: uv sync --all-extras
