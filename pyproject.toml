@@ -23,6 +23,11 @@ requires-python = ">=3.11"
 version="0.0.0-dev"
 
 
+[dependency-groups]
+dev = [
+  "pytest >=8.1.1,<9"
+]
+
 [project.optional-dependencies]
 explainability = ["unidecode", "nltk", "captum"]
 preprocess =     ["unidecode", "nltk"]
