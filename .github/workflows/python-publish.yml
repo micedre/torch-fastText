@@ -62,5 +62,7 @@ jobs:
        - name: Build the project
          run: uv build
 
-#       - name: Publish to PyPI
-#         run: uv publish
+       - name: Publish to PyPI
+         run: |
+          UV_PUBLISH_INDEX="https://test.pypi.org/legacy"
+          uv publish

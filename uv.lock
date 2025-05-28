@@ -1383,6 +1383,7 @@ preprocess = [
 
 [package.dev-dependencies]
 dev = [
+    { name = "captum" },
     { name = "nltk" },
     { name = "pandas" },
     { name = "pytest" },
@@ -1404,6 +1405,7 @@ provides-extras = ["explainability", "preprocess"]
 
 [package.metadata.requires-dev]
 dev = [
+    { name = "captum" },
     { name = "nltk" },
     { name = "pandas" },
     { name = "pytest", specifier = ">=8.1.1,<9" },

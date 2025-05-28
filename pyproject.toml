@@ -29,7 +29,8 @@ dev = [
   "pandas",
   "scikit-learn",
   "nltk",
-  "unidecode"
+  "unidecode",
+  "captum"
 ]
 
 [project.optional-dependencies]
