@@ -50,7 +50,7 @@ jobs:
           echo "Tag name: $TAG_NAME"
 
           # Update the version in pyproject.toml
-          sed -i "s/^version = \".*\"/version = \"$TAG_NAME\"/" pyproject.toml
+          sed -i "s/^version=\".*\"/version=\"$TAG_NAME\"/" pyproject.toml
 
           # Print the updated pyproject.toml file
           cat pyproject.toml

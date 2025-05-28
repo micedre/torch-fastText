@@ -39,7 +39,7 @@ uv add torchTextClassifiers
 - `preprocess`: To preprocess text input, using `nltk` and `unidecode` libraries.
 - `explainability`: Simple methods to visualize feature attributions at word and letter levels, using `captum`library.
 
-Run `pip install torchFastText[preprocess]` or `pip install torchFastText[explainability]` to download these optional dependencies.
+Run `pip install torchTextClassifiers[preprocess]` or `pip install torchTextClassifiers[explainability]` to download these optional dependencies.
 
 
 ## Quick Start
