@@ -44,11 +44,17 @@ jobs:
           python-version-file: "pyproject.toml"
        
        - name: Change Package Version
-         uses: rahulp959/toml-editor@v1.0.1
-         with:
-             file: "pyproject.toml"
-             key: "project.version"
-             value: ${GITHUB_REF_NAME##v*}
+         run: |
+          # Extract the tag name and remove the leading 'v'
+          TAG_NAME=${GITHUB_REF#refs/tags/v}
+          echo "Tag name: $TAG_NAME"
+
+          # Update the version in pyproject.toml
+          sed -i "s/^version = \".*\"/version = \"$TAG_NAME\"/" pyproject.toml
+
+          # Print the updated pyproject.toml file
+          cat pyproject.toml
+
             
        - name: Install build dependencies
          run: uv sync --all-extras
