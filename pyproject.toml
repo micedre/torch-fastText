@@ -8,7 +8,7 @@ authors = [
     { name = "Cédric Couralet", email = "cedric.couralet@insee.fr" },
 ]
 readme = "README.md"
-repository = "https://github.com/InseeFrLab/torch-fastText"
+repository = "https://github.com/InseeFrLab/torchTextClassifiers"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
