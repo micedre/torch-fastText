@@ -63,5 +63,5 @@ jobs:
 
        - name: Publish to PyPI
          run: |
-          export UV_PUBLISH_URL="https://test.pypi.org/legacy"
+          export UV_PUBLISH_URL="https://test.pypi.org/legacy/"
           uv publish -v
