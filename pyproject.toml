@@ -1,5 +1,5 @@
 [project]
-name = "torchTextClassifiers"
+name = "torchtextclassifiers"
 description = "An implementation of the https://github.com/facebookresearch/fastText supervised learning algorithm for text classification using Pytorch."
 authors = [
     { name = "Tom Seimandi", email = "tom.seimandi@gmail.com" },
