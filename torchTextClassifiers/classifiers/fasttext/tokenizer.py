@@ -14,7 +14,7 @@ from dataclasses import dataclass
 from queue import Queue
 import multiprocessing
 
-from ..preprocess import clean_text_feature
+from ...utilities.preprocess import clean_text_feature
 
 
 class NGramTokenizer:

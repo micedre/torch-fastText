@@ -17,12 +17,12 @@ except ImportError:
 
 from torch import nn
 
-from ..utilities.utils import (
+from ...utilities.utils import (
     compute_preprocessed_word_score,
     compute_word_score,
     explain_continuous,
 )
-from ..utilities.checkers import validate_categorical_inputs
+from ...utilities.checkers import validate_categorical_inputs
 
 logger = logging.getLogger(__name__)
 
