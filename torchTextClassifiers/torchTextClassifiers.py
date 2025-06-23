@@ -20,8 +20,6 @@ from .utilities.checkers import check_X, check_Y, NumpyJSONEncoder
 from .classifiers.fasttext.wrapper import FastTextWrapper
 from .classifiers.fasttext.config import FastTextConfig
 from .classifiers.fasttext.tokenizer import NGramTokenizer
-from .classifiers.fasttext.dataset import FastTextModelDataset
-from .classifiers.fasttext.lightning_module import FastTextModule
 from .classifiers.base import BaseClassifierConfig, BaseClassifierWrapper
 
 
@@ -276,25 +274,29 @@ class torchTextClassifiers:
         
         self.classifier_wrapper.pytorch_model = self.classifier_wrapper.pytorch_model.to(device)
         
-        # Create dataloaders (assuming FastText for now - this should be abstracted)
-        train_dataset = FastTextModelDataset(
-            categorical_variables=train_categorical_variables,
+        # Create datasets and dataloaders using wrapper methods
+        train_dataset = self.classifier_wrapper.create_dataset(
             texts=training_text,
-            outputs=y_train,
-            tokenizer=self.classifier_wrapper.tokenizer,
+            labels=y_train,
+            categorical_variables=train_categorical_variables,
         )
-        val_dataset = FastTextModelDataset(
-            categorical_variables=val_categorical_variables,
+        val_dataset = self.classifier_wrapper.create_dataset(
             texts=val_text,
-            outputs=y_val,
-            tokenizer=self.classifier_wrapper.tokenizer,
+            labels=y_val,
+            categorical_variables=val_categorical_variables,
         )
         
-        train_dataloader = train_dataset.create_dataloader(
-            batch_size=batch_size, num_workers=num_workers
+        train_dataloader = self.classifier_wrapper.create_dataloader(
+            dataset=train_dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=True
         )
-        val_dataloader = val_dataset.create_dataloader(
-            batch_size=batch_size, num_workers=num_workers
+        val_dataloader = self.classifier_wrapper.create_dataloader(
+            dataset=val_dataset,
+            batch_size=batch_size,
+            num_workers=num_workers,
+            shuffle=False
         )
         
         # Setup trainer
@@ -340,22 +342,9 @@ class torchTextClassifiers:
             end = time.time()
             logger.info(f"Training completed in {end - start:.2f} seconds.")
         
-        # Load best model
+        # Load best model using wrapper method
         best_model_path = trainer.checkpoint_callback.best_model_path
-        self.classifier_wrapper.lightning_module = FastTextModule.load_from_checkpoint(
-            best_model_path,
-            model=self.classifier_wrapper.pytorch_model,
-            loss=self.classifier_wrapper.loss,
-            optimizer=self.classifier_wrapper.optimizer,
-            optimizer_params=self.classifier_wrapper.optimizer_params,
-            scheduler=self.classifier_wrapper.scheduler,
-            scheduler_params=self.classifier_wrapper.scheduler_params,
-            scheduler_interval="epoch",
-        )
-        
-        self.classifier_wrapper.pytorch_model = self.classifier_wrapper.lightning_module.model.to("cpu")
-        self.classifier_wrapper.trained = True
-        self.classifier_wrapper.pytorch_model.eval()
+        self.classifier_wrapper.load_best_model(best_model_path)
     
     def predict(self, X: np.ndarray, **kwargs) -> np.ndarray:
         """Make predictions."""

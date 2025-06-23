@@ -53,3 +53,18 @@ class BaseClassifierWrapper(ABC):
     def validate(self, X: np.ndarray, Y: np.ndarray, **kwargs) -> float:
         """Validate the model."""
         pass
+    
+    @abstractmethod
+    def create_dataset(self, texts: np.ndarray, labels: np.ndarray, categorical_variables: Optional[np.ndarray] = None):
+        """Create dataset for training/validation."""
+        pass
+    
+    @abstractmethod
+    def create_dataloader(self, dataset, batch_size: int, num_workers: int = 0, shuffle: bool = True):
+        """Create dataloader from dataset."""
+        pass
+    
+    @abstractmethod
+    def load_best_model(self, checkpoint_path: str) -> None:
+        """Load best model from checkpoint."""
+        pass

@@ -174,4 +174,33 @@ class FastTextWrapper(BaseClassifierWrapper):
             assert self.pytorch_model.no_cat_var == True
         
         return self.pytorch_model.predict_and_explain(text, categorical_variables, top_k=top_k)
+    
+    def create_dataset(self, texts: np.ndarray, labels: np.ndarray, categorical_variables: np.ndarray = None):
+        """Create FastText dataset."""
+        return FastTextModelDataset(
+            categorical_variables=categorical_variables,
+            texts=texts,
+            outputs=labels,
+            tokenizer=self.tokenizer,
+        )
+    
+    def create_dataloader(self, dataset, batch_size: int, num_workers: int = 0, shuffle: bool = True):
+        """Create FastText dataloader."""
+        return dataset.create_dataloader(batch_size=batch_size, num_workers=num_workers, shuffle=shuffle)
+    
+    def load_best_model(self, checkpoint_path: str) -> None:
+        """Load best FastText model from checkpoint."""
+        self.lightning_module = FastTextModule.load_from_checkpoint(
+            checkpoint_path,
+            model=self.pytorch_model,
+            loss=self.loss,
+            optimizer=self.optimizer,
+            optimizer_params=self.optimizer_params,
+            scheduler=self.scheduler,
+            scheduler_params=self.scheduler_params,
+            scheduler_interval="epoch",
+        )
+        self.pytorch_model = self.lightning_module.model.to("cpu")
+        self.trained = True
+        self.pytorch_model.eval()
 
