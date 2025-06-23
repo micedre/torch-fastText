@@ -2,8 +2,6 @@ import logging
 import time
 import json
 from typing import Optional, Union, Type, List, Dict, Any
-from dataclasses import dataclass, field, asdict
-from abc import ABC, abstractmethod
 from enum import Enum
 
 import numpy as np
@@ -14,13 +12,10 @@ from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
 )
-from torch.optim import SGD, Adam
 
 from .utilities.checkers import check_X, check_Y, NumpyJSONEncoder
-from .classifiers.fasttext.wrapper import FastTextWrapper
-from .classifiers.fasttext.config import FastTextConfig
-from .classifiers.fasttext.tokenizer import NGramTokenizer
 from .classifiers.base import BaseClassifierConfig, BaseClassifierWrapper
+from .factories import create_config_from_dict
 
 
 logger = logging.getLogger(__name__)
@@ -47,13 +42,15 @@ class ClassifierType(Enum):
 class ClassifierFactory:
     """Factory class to create classifier wrappers."""
     
-    _registry = {
-        ClassifierType.FASTTEXT: FastTextWrapper,
-    }
+    _registry: Dict[ClassifierType, Type[BaseClassifierWrapper]] = {}
     
     @classmethod
     def create_classifier(cls, classifier_type: ClassifierType, config: BaseClassifierConfig) -> BaseClassifierWrapper:
         """Create a classifier wrapper based on type and configuration."""
+        if classifier_type not in cls._registry:
+            # Try to load the classifier module dynamically
+            cls._try_load_classifier(classifier_type)
+            
         if classifier_type not in cls._registry:
             raise ValueError(f"Unsupported classifier type: {classifier_type}")
         
@@ -64,9 +61,18 @@ class ClassifierFactory:
     def register_classifier(cls, classifier_type: ClassifierType, wrapper_class: Type[BaseClassifierWrapper]):
         """Register a new classifier type."""
         cls._registry[classifier_type] = wrapper_class
+    
+    @classmethod
+    def _try_load_classifier(cls, classifier_type: ClassifierType):
+        """Try to dynamically load a classifier module."""
+        if classifier_type == ClassifierType.FASTTEXT:
+            try:
+                from .classifiers.fasttext.wrapper import FastTextWrapper
+                cls.register_classifier(ClassifierType.FASTTEXT, FastTextWrapper)
+            except ImportError:
+                pass  # Module not available
 
 
-@dataclass
 class torchTextClassifiers:
     """
     Generic wrapper class for different types of text classifiers.
@@ -76,83 +82,18 @@ class torchTextClassifiers:
         config (BaseClassifierConfig): Configuration for the specific classifier
     """
     
-    classifier_type: ClassifierType
-    config: BaseClassifierConfig
-    
-    # Internal fields
-    classifier_wrapper: Optional[BaseClassifierWrapper] = field(init=False, default=None)
+    def __init__(self, classifier_type: ClassifierType, config: BaseClassifierConfig):
+        """Initialize the torchTextClassifiers instance."""
+        self.classifier_type = classifier_type
+        self.config = config
+        self.classifier_wrapper: Optional[BaseClassifierWrapper] = None
+        self.__post_init__()
     
     def __post_init__(self):
         """Initialize the classifier wrapper after dataclass initialization."""
         self.classifier_wrapper = ClassifierFactory.create_classifier(
             self.classifier_type, self.config
         )
-    
-    @classmethod
-    def create_fasttext(
-        cls,
-        embedding_dim: int,
-        sparse: bool,
-        num_tokens: int,
-        min_count: int,
-        min_n: int,
-        max_n: int,
-        len_word_ngrams: int,
-        **kwargs
-    ) -> "torchTextClassifiers":
-        """Convenience method to create FastText classifier."""
-        config = FastTextConfig(
-            embedding_dim=embedding_dim,
-            sparse=sparse,
-            num_tokens=num_tokens,
-            min_count=min_count,
-            min_n=min_n,
-            max_n=max_n,
-            len_word_ngrams=len_word_ngrams,
-            **kwargs
-        )
-        return cls(ClassifierType.FASTTEXT, config)
-    
-    @classmethod
-    def build_from_tokenizer(
-        cls,
-        classifier_type: ClassifierType,
-        tokenizer: NGramTokenizer,
-        embedding_dim: int,
-        num_classes: Optional[int],
-        categorical_vocabulary_sizes: Optional[List[int]] = None,
-        sparse: bool = False,
-        **kwargs
-    ) -> "torchTextClassifiers":
-        """Build classifier from existing tokenizer."""
-        if classifier_type == ClassifierType.FASTTEXT:
-            # Ensure the tokenizer has required attributes
-            if not all(
-                hasattr(tokenizer, attr)
-                for attr in ["min_count", "min_n", "max_n", "num_tokens", "word_ngrams"]
-            ):
-                raise ValueError(f"Missing attributes in tokenizer: {tokenizer}")
-            
-            config = FastTextConfig(
-                num_tokens=tokenizer.num_tokens,
-                embedding_dim=embedding_dim,
-                min_count=tokenizer.min_count,
-                min_n=tokenizer.min_n,
-                max_n=tokenizer.max_n,
-                len_word_ngrams=tokenizer.word_ngrams,
-                sparse=sparse,
-                num_classes=num_classes,
-                categorical_vocabulary_sizes=categorical_vocabulary_sizes,
-                **kwargs
-            )
-            
-            wrapper = cls(classifier_type, config)
-            wrapper.classifier_wrapper.tokenizer = tokenizer
-            wrapper.classifier_wrapper._build_pytorch_model()
-            
-            return wrapper
-        else:
-            raise ValueError(f"Unsupported classifier type: {classifier_type}")
     
     def build_tokenizer(self, training_text: np.ndarray) -> None:
         """Build tokenizer from training text."""
@@ -376,11 +317,12 @@ class torchTextClassifiers:
         with open(filepath, "r") as f:
             data = json.load(f)
         
-        classifier_type = ClassifierType(data["classifier_type"])
+        try:
+            classifier_type = ClassifierType(data["classifier_type"])
+        except ValueError:
+            raise ValueError(f"Unsupported classifier type: {data['classifier_type']}")
         
-        if classifier_type == ClassifierType.FASTTEXT:
-            config = FastTextConfig.from_dict(data["config"])
-        else:
-            raise ValueError(f"Unsupported classifier type: {classifier_type}")
+        # Use the generic config factory
+        config = create_config_from_dict(data["classifier_type"], data["config"])
         
         return cls(classifier_type, config)
