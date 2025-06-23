@@ -16,8 +16,9 @@ classifiers = [
 ]
 keywords = ["fastText", "text classification", "NLP", "automatic coding", "deep learning"]
 dependencies = [
+    "mlflow>=3.1.0",
     "numpy>=1.26.4",
-    "pytorch-lightning>=2.4.0"
+    "pytorch-lightning>=2.4.0",
 ]
 requires-python = ">=3.11"
 version="0.0.0-dev"
