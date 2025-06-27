@@ -201,6 +201,17 @@ class FastTextModel(nn.Module):
             # Process categorical embeddings in batch
             for i, (_, embed_layer) in enumerate(self.categorical_embedding_layers.items()):
                 cat_input = additional_inputs[:, i].long()
+                
+                # Check if categorical values are within valid range and clamp if needed
+                vocab_size = embed_layer.num_embeddings
+                max_val = cat_input.max().item()
+                min_val = cat_input.min().item()
+                
+                if max_val >= vocab_size or min_val < 0:
+                    logger.warning(f"Categorical feature {i}: values range [{min_val}, {max_val}] exceed vocabulary size {vocab_size}. Clamping to valid range [0, {vocab_size - 1}]")
+                    # Clamp values to valid range
+                    cat_input = torch.clamp(cat_input, 0, vocab_size - 1)
+                
                 cat_embed = embed_layer(cat_input)
                 if cat_embed.dim() > 2:
                     cat_embed = cat_embed.squeeze(1)
@@ -305,7 +316,9 @@ class FastTextModel(nn.Module):
 
         if not self.no_cat_var:
             other_features = []
-            for i, categorical_variable in enumerate(categorical_variables):
+            # Transpose categorical_variables to iterate over features instead of samples
+            categorical_variables_transposed = categorical_variables.T
+            for i, categorical_variable in enumerate(categorical_variables_transposed):
                 other_features.append(
                     torch.tensor(categorical_variable).reshape(batch_size, -1).to(torch.int64)
                 )
