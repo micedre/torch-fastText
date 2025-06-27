@@ -144,7 +144,7 @@ class ClassifierFactory:
         """
         if classifier_type == ClassifierType.FASTTEXT:
             try:
-                from .classifiers.fasttext.wrapper import FastTextWrapper
+                from .classifiers.fasttext.fasttext import FastTextWrapper
                 cls.register_classifier(ClassifierType.FASTTEXT, FastTextWrapper)
             except ImportError:
                 pass  # Module not available

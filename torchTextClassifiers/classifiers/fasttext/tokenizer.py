@@ -1,5 +1,95 @@
-"""
-NGramTokenizer class.
+"""NGram Tokenizer for FastText
+
+This module implements the NGramTokenizer class, which is responsible for converting
+raw text into n-gram tokens that can be processed by the FastText model.
+
+The tokenizer implements the core text preprocessing pipeline from the original FastText paper:
+1. Text cleaning and normalization
+2. Character n-gram extraction
+3. Word n-gram extraction  
+4. Hash-based vocabulary building
+5. Token ID assignment
+
+Key Features:
+=============
+
+- **Character N-grams**: Extracts subword features (e.g., "hello" → ["hel", "ell", "llo"])
+- **Word N-grams**: Captures phrase-level patterns (e.g., "new york" → ["new_york"])
+- **Hash-based Vocabulary**: Efficient vocabulary management with configurable size
+- **Parallel Processing**: Multi-threaded tokenization for large datasets
+- **Memory Efficient**: Streaming processing for large text corpora
+
+Example Usage:
+==============
+
+    >>> from torchTextClassifiers.classifiers.fasttext.tokenizer import NGramTokenizer
+    >>> import numpy as np
+    >>> 
+    >>> # Sample training texts
+    >>> texts = np.array([
+    ...     "This is a sample text",
+    ...     "Another example sentence",
+    ...     "Text classification example"
+    ... ])
+    >>> 
+    >>> # Initialize tokenizer
+    >>> tokenizer = NGramTokenizer(
+    ...     min_count=1,      # Minimum frequency for tokens
+    ...     min_n=3,          # Minimum character n-gram length
+    ...     max_n=6,          # Maximum character n-gram length
+    ...     num_tokens=10000, # Vocabulary size
+    ...     word_ngrams=2,    # Word n-gram length
+    ...     training_text=texts
+    ... )
+    >>> 
+    >>> # Tokenize new text
+    >>> tokens = tokenizer.tokenize(["New text to tokenize"])
+    >>> print(tokens.shape)  # [batch_size, max_sequence_length]
+
+Architecture:
+=============
+
+    Input Text: "hello world"
+           │
+           ▼
+    ┌─────────────────┐
+    │ Text Cleaning   │  ← Remove special chars, normalize
+    │ "hello world"   │
+    └─────────────────┘
+           │
+           ▼
+    ┌─────────────────┐
+    │ Character       │  ← Extract: ["hel", "ell", "llo", "wor", "orl", "rld"]
+    │ N-grams         │
+    └─────────────────┘
+           │
+           ▼
+    ┌─────────────────┐
+    │ Word N-grams    │  ← Extract: ["hello", "world", "hello_world"]
+    │                 │
+    └─────────────────┘
+           │
+           ▼
+    ┌─────────────────┐
+    │ Hash Function   │  ← Map tokens to vocabulary indices
+    │ & Vocabulary    │
+    └─────────────────┘
+           │
+           ▼
+    ┌─────────────────┐
+    │ Token IDs       │  ← Output: [42, 156, 789, 234, ...]
+    │                 │
+    └─────────────────┘
+
+Implementation Details:
+=======================
+
+The tokenizer uses several optimization techniques:
+
+1. **Hashing**: FNV-1a hash function for fast vocabulary lookup
+2. **Parallel Processing**: Multi-threaded token extraction
+3. **Memory Mapping**: Efficient handling of large vocabularies
+4. **Padding**: Automatic sequence length normalization
 """
 
 import ctypes
@@ -18,8 +108,79 @@ from ...utilities.preprocess import clean_text_feature
 
 
 class NGramTokenizer:
-    """
-    NGramTokenizer class.
+    """NGram Tokenizer for FastText Text Classification
+    
+    The NGramTokenizer is responsible for converting raw text into numerical tokens
+    that can be processed by neural networks. It implements the FastText tokenization
+    strategy with both character-level and word-level n-grams.
+    
+    Key Concepts:
+    =============
+    
+    **Character N-grams**: Subword features that capture morphological patterns
+    - Example: "running" → ["run", "unn", "nni", "nin", "ing"]
+    - Helps with out-of-vocabulary words and morphological variations
+    
+    **Word N-grams**: Phrase-level features that capture semantic patterns  
+    - Example: "New York City" → ["New", "York", "City", "New_York", "York_City"]
+    - Captures local context and phrase meanings
+    
+    **Hash-based Vocabulary**: Efficient mapping from tokens to indices
+    - Uses FNV-1a hash function for fast, deterministic mapping
+    - Configurable vocabulary size for memory management
+    - No explicit vocabulary storage required
+    
+    Attributes:
+    ===========
+    
+    min_count : int
+        Minimum frequency threshold for including tokens in vocabulary
+    min_n : int  
+        Minimum length for character n-grams (must be >= 2)
+    max_n : int
+        Maximum length for character n-grams (must be <= 6)
+    num_tokens : int
+        Maximum vocabulary size (hash table size)
+    word_ngrams : int
+        Maximum length for word n-grams
+    padding_index : int
+        Index used for padding sequences to equal length
+    
+    Methods:
+    ========
+    
+    tokenize(texts) : torch.Tensor
+        Convert list of texts to token ID sequences
+    fit(training_text) : None
+        Build vocabulary statistics from training data
+    get_ngrams(text) : List[str]  
+        Extract all n-grams from a single text
+    hash_token(token) : int
+        Map token string to vocabulary index using hash function
+        
+    Example:
+    ========
+    
+    >>> tokenizer = NGramTokenizer(
+    ...     min_count=2,
+    ...     min_n=3,
+    ...     max_n=6, 
+    ...     num_tokens=10000,
+    ...     len_word_ngrams=2,
+    ...     training_text=["sample text", "another example"]
+    ... )
+    >>> 
+    >>> # Tokenize new text
+    >>> tokens = tokenizer.tokenize(["hello world"])
+    >>> print(tokens.shape)  # [1, sequence_length]
+    
+    Notes:
+    ======
+    
+    - Character n-gram bounds (2-6) are based on empirical FastText research
+    - Longer n-grams capture more specific patterns but increase vocabulary size
+    - Hash collisions are handled gracefully by the neural network learning
+    - Padding is applied automatically to create fixed-length sequences
     """
 
     def __init__(

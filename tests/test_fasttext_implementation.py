@@ -3,8 +3,7 @@ import numpy as np
 import torch
 from unittest.mock import Mock, patch, MagicMock
 
-from torchTextClassifiers.classifiers.fasttext.wrapper import FastTextWrapper
-from torchTextClassifiers.classifiers.fasttext.core import FastTextConfig
+from torchTextClassifiers.classifiers.fasttext.fasttext import FastTextWrapper, FastTextConfig
 from torchTextClassifiers.classifiers.fasttext.tokenizer import NGramTokenizer
 from torchTextClassifiers.classifiers.fasttext.model import FastTextModelDataset, FastTextModel, FastTextModule
 
@@ -88,7 +87,7 @@ class TestFastTextWrapper:
         assert wrapper.trained == False
         assert wrapper.device is None
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.NGramTokenizer')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.NGramTokenizer')
     def test_build_tokenizer(self, mock_tokenizer_class, fasttext_config, sample_text_data):
         """Test tokenizer building."""
         mock_tokenizer = Mock()
@@ -107,7 +106,7 @@ class TestFastTextWrapper:
         )
         assert wrapper.tokenizer == mock_tokenizer
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModel')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModel')
     def test_build_pytorch_model_with_tokenizer(self, mock_model_class, fasttext_config, mock_tokenizer):
         """Test PyTorch model building with existing tokenizer."""
         mock_model = Mock()
@@ -138,7 +137,7 @@ class TestFastTextWrapper:
             wrapper._build_pytorch_model()
     
     @patch('torch.optim.lr_scheduler.ReduceLROnPlateau')
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModule')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModule')
     def test_check_and_init_lightning_basic(self, mock_module_class, mock_scheduler, fasttext_config, mock_pytorch_model):
         """Test Lightning module initialization."""
         mock_module = Mock()
@@ -154,7 +153,7 @@ class TestFastTextWrapper:
         assert wrapper.lightning_module == mock_module
         assert wrapper.optimizer_params == {"lr": 0.01}
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModule')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModule')
     def test_check_and_init_lightning_uses_config_lr(self, mock_module_class, fasttext_config, mock_pytorch_model):
         """Test Lightning module initialization uses config learning rate as default."""
         wrapper = FastTextWrapper(fasttext_config)
@@ -169,7 +168,7 @@ class TestFastTextWrapper:
         assert wrapper.optimizer_params['lr'] == fasttext_config.learning_rate
         assert wrapper.lightning_module == mock_module
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.check_X')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.check_X')
     def test_predict_not_trained(self, mock_check_X, fasttext_config, sample_text_data):
         """Test prediction fails when model not trained."""
         wrapper = FastTextWrapper(fasttext_config)
@@ -178,7 +177,7 @@ class TestFastTextWrapper:
         with pytest.raises(Exception, match="Model must be trained first"):
             wrapper.predict(sample_text_data)
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.check_X')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.check_X')
     def test_predict_success(self, mock_check_X, fasttext_config, sample_text_data, mock_pytorch_model):
         """Test successful prediction."""
         mock_check_X.return_value = (sample_text_data, None, True)
@@ -199,8 +198,8 @@ class TestFastTextWrapper:
         expected_result = np.array([1, 0, 1])
         np.testing.assert_array_equal(result, expected_result)
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextWrapper.predict')
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.check_Y')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextWrapper.predict')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.check_Y')
     def test_validate_success(self, mock_check_Y, mock_predict, fasttext_config, 
                              sample_text_data, sample_labels):
         """Test successful validation."""
@@ -222,7 +221,7 @@ class TestFastTextWrapper:
         wrapper = FastTextWrapper(fasttext_config)
         wrapper.tokenizer = mock_tokenizer
         
-        with patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModelDataset') as mock_dataset_class:
+        with patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModelDataset') as mock_dataset_class:
             mock_dataset = Mock()
             mock_dataset_class.return_value = mock_dataset
             
@@ -242,7 +241,7 @@ class TestFastTextWrapper:
         wrapper = FastTextWrapper(fasttext_config)
         wrapper.tokenizer = mock_tokenizer
         
-        with patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModelDataset') as mock_dataset_class:
+        with patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModelDataset') as mock_dataset_class:
             mock_dataset = Mock()
             mock_dataset_class.return_value = mock_dataset
             
@@ -270,7 +269,7 @@ class TestFastTextWrapper:
         )
         assert result == mock_dataloader
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.FastTextModule')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.FastTextModule')
     def test_load_best_model(self, mock_module_class, fasttext_config, mock_pytorch_model):
         """Test loading best model from checkpoint."""
         mock_loaded_module = Mock()
@@ -309,7 +308,7 @@ class TestFastTextWrapper:
         assert wrapper.trained == True
         mock_pytorch_model.eval.assert_called_once()
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.check_X')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.check_X')
     def test_predict_and_explain_success(self, mock_check_X, fasttext_config, sample_text_data, mock_pytorch_model):
         """Test successful predict_and_explain."""
         mock_check_X.return_value = (sample_text_data, None, True)
@@ -327,7 +326,7 @@ class TestFastTextWrapper:
         mock_pytorch_model.predict_and_explain.assert_called_once()
         assert result == expected_result
     
-    @patch('torchTextClassifiers.classifiers.fasttext.wrapper.check_X')
+    @patch('torchTextClassifiers.classifiers.fasttext.fasttext.check_X')
     def test_predict_and_explain_not_trained(self, mock_check_X, fasttext_config, sample_text_data):
         """Test predict_and_explain fails when model not trained."""
         wrapper = FastTextWrapper(fasttext_config)

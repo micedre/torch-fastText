@@ -140,7 +140,7 @@ def load_and_prepare_data():
     """Load and prepare the same data as used in the notebook"""
     print("📊 Using Sirene dataset sample for demonstration...")
     df = pd.read_parquet("https://minio.lab.sspcloud.fr/projet-ape/extractions/20241027_sirene4.parquet")
-    df = df.sample(1000, random_state=42)  # Smaller sample to avoid disk space issues
+    df = df.sample(100000, random_state=42)  # Smaller sample to avoid disk space issues
     print(f"✅ Loaded {len(df)} samples from SIRENE dataset")
    
     categorical_features = ["evenement_type", "cj",  "activ_nat_et", "liasse_type", "activ_surf_et", "activ_perm_et"]
@@ -227,27 +227,36 @@ def train_and_evaluate_model(X, y, model_name, use_categorical=False):
     print(f"\n🎯 Training {model_name}...")
     
   
-    # Split data
-    X_train, X_test, y_train, y_test = stratified_split_rare_labels(
+    # Split data into train/validation/test using stratified_split_rare_labels twice
+    # First split: separate test set (20%)
+    X_temp, X_test, y_temp, y_test = stratified_split_rare_labels(
         X, y, test_size=0.2
+    )
+    
+    # Second split: separate validation from remaining data (10% of original = 12.5% of remaining)
+    val_size_adjusted = 0.1 / 0.8  # 10% of original data / 80% remaining data
+    X_train, X_val, y_train, y_val = stratified_split_rare_labels(
+        X_temp, y_temp, test_size=val_size_adjusted
     )
     
     # Model parameters
     if use_categorical:
         # For mixed model - get vocabulary sizes from data
-        cat_data = X_train[:, 1:].astype(int)  # Categorical features
-        vocab_sizes = [int(np.max(cat_data[:, i]) + 1) for i in range(cat_data.shape[1])]
+        cat_data = X_train[:, 1:]  # Categorical features
+        vocab_sizes = (np.max(cat_data, axis=0) + 1).astype(int).tolist()
+        num_cat_var = cat_data.shape[1]
         
         model_params = {
             "embedding_dim": 50,
             "sparse": False,
-            "num_tokens": 50000,
+            "num_tokens": 100000,
             "min_count": 1,
             "min_n": 3,
             "max_n": 6,
             "len_word_ngrams": 2,
-            "categorical_vocabulary_sizes": vocab_sizes,
-            "categorical_embedding_dims": [10] * len(vocab_sizes)
+            #"num_categorical_features": num_cat_var,
+            #"categorical_vocabulary_sizes": vocab_sizes,
+            #"categorical_embedding_dims": 10
         }
         print(f"   Categorical vocabulary sizes: {vocab_sizes}")
     else:
@@ -255,7 +264,7 @@ def train_and_evaluate_model(X, y, model_name, use_categorical=False):
         model_params = {
             "embedding_dim": 50,
             "sparse": False,
-            "num_tokens": 50000,
+            "num_tokens": 100000,
             "min_count": 1,
             "min_n": 3,
             "max_n": 6,
@@ -264,10 +273,11 @@ def train_and_evaluate_model(X, y, model_name, use_categorical=False):
     
     # Training parameters - reduced to save disk space
     train_params = {
-        "num_epochs": 10,
+        "num_epochs": 20,
         "batch_size": 128,
-        "patience_train": 2,
-        "lr": 0.001,
+        "patience_train": 3,
+        "lr": 0.004,
+        "enable_progress_bar": False,
         "verbose": False
     }
     
@@ -279,46 +289,40 @@ def train_and_evaluate_model(X, y, model_name, use_categorical=False):
     
     # Train model - disable logging to save disk space
     classifier.train(
-        X_train, y_train, X_test, y_test,
-        enable_progress_bar=False,
+        X_train, y_train, X_val, y_val,
         **train_params
     )
     
     training_time = time.time() - start_time
     
-    # Handle predictions based on model type
+    # Handle predictions based on model type - use separate test set for validation
     if use_categorical:
         # Skip validation for mixed model due to categorical prediction bug
         print("   ✅ Running validation for text-with-categorical-variables model...")
         try:
-            train_accuracy = classifier.validate(X_train, y_train)
+            # Validate on separate test set (not used for training)
             test_accuracy = classifier.validate(X_test, y_test)
             predictions = classifier.predict(X_test)
-            print(f"   Train accuracy: {train_accuracy:.3f}")
-            print(f"   Test accuracy: {test_accuracy:.3f}")
+            print(f"   Test accuracy (separate validation): {test_accuracy:.3f}")
         except Exception as e:
             print(f"   ⚠️  Validation failed: {e}")
-            train_accuracy = 0.0
             test_accuracy = 0.0
             predictions = np.zeros(len(y_test))
     else:
         # Text-only model works fine for predictions
         print("   ✅ Running validation for text-only model...")
         try:
-            train_accuracy = classifier.validate(X_train, y_train)
+            # Validate on separate test set (not used for training)
             test_accuracy = classifier.validate(X_test, y_test)
             predictions = classifier.predict(X_test)
-            print(f"   Train accuracy: {train_accuracy:.3f}")
-            print(f"   Test accuracy: {test_accuracy:.3f}")
+            print(f"   Test accuracy (separate validation): {test_accuracy:.3f}")
         except Exception as e:
             print(f"   ⚠️  Validation failed: {e}")
-            train_accuracy = 0.0
             test_accuracy = 0.0
             predictions = np.zeros(len(y_test))
     
     return {
         'model_name': model_name,
-        'train_accuracy': train_accuracy,
         'test_accuracy': test_accuracy,
         'training_time': training_time,
         'predictions': predictions,
@@ -471,52 +475,52 @@ def main():
     # Compare results
     print(f"\n📊 Results Comparison:")
     print("=" * 50)
-    print(f"{'Model':<25} {'Train Acc':<12} {'Test Acc':<11} {'Time (s)':<10}")
+    print(f"{'Model':<25} {'Test Acc (Validation)':<20} {'Time (s)':<10}")
     print("-" * 50)
-    print(f"{'Text-Only':<25} {results_text_only['train_accuracy']:<12.3f} "
-          f"{results_text_only['test_accuracy']:<11.3f} {results_text_only['training_time']:<10.1f}")
-    print(f"{'Mixed Features':<25} {results_mixed['train_accuracy']:<12.3f} "
-          f"{results_mixed['test_accuracy']:<11.3f} {results_mixed['training_time']:<10.1f}")
+    print(f"{'Text-Only':<25} {results_text_only['test_accuracy']:<20.3f} "
+          f"{results_text_only['training_time']:<10.1f}")
+    print(f"{'Mixed Features':<25} {results_mixed['test_accuracy']:<20.3f} "
+          f"{results_mixed['training_time']:<10.1f}")
     
     # Calculate improvements
     acc_improvement = results_mixed['test_accuracy'] - results_text_only['test_accuracy']
     time_overhead = results_mixed['training_time'] - results_text_only['training_time']
     
     print("-" * 50)
-    print(f"Test Accuracy Improvement: {acc_improvement:+.3f}")
+    print(f"Validation Accuracy Improvement: {acc_improvement:+.3f}")
     print(f"Training Time Overhead: {time_overhead:+.1f}s")
     
     # Extract sample texts for analysis
-    _, X_test_mixed, _, _ = stratified_split_rare_labels(X_mixed, y, test_size=0.2)
-    sample_texts = X_test_mixed[:, 0]  # First column is text
+    #_, X_test_mixed, _, _ = stratified_split_rare_labels(X_mixed, y, test_size=0.2)
+    #sample_texts = X_test_mixed[:, 0]  # First column is text
     
     # Detailed prediction analysis
-    analyze_predictions(results_text_only, results_mixed, encoder, sample_texts)
+    #analyze_predictions(results_text_only, results_mixed, encoder, sample_texts)
     
     # Demonstrate categorical features impact
-    demonstrate_categorical_impact(X_test_mixed, results_text_only)
+    #demonstrate_categorical_impact(X_test_mixed, results_text_only)
     
     # Summary
-    print(f"\n🎯 Summary:")
-    print("=" * 40)
-    print("✅ Successfully demonstrated the difference between:")
-    print("   - Text-only FastText classifier")
-    print("   - Mixed features FastText classifier (text + categorical)")
-    print(f"\n📊 Model Architecture Comparison:")
-    print("   - Text-only model: Uses only text embeddings")
-    print("   - Mixed model: Uses text embeddings + categorical embeddings")
-    print("   - Mixed model has additional embedding layers for categorical features")
-    print(f"\n⚠️  Note: Validation/prediction had issues due to categorical variable handling")
-    print("   - This is a known issue that would be fixed in future versions")
-    print("   - Training completed successfully for both models")
-    print("   - The example demonstrates the API differences between the two approaches")
+    # print(f"\n🎯 Summary:")
+    # print("=" * 40)
+    # print("✅ Successfully demonstrated the difference between:")
+    # print("   - Text-only FastText classifier")
+    # print("   - Mixed features FastText classifier (text + categorical)")
+    # print(f"\n📊 Model Architecture Comparison:")
+    # print("   - Text-only model: Uses only text embeddings")
+    # print("   - Mixed model: Uses text embeddings + categorical embeddings")
+    # print("   - Mixed model has additional embedding layers for categorical features")
+    # print(f"\n⚠️  Note: Validation/prediction had issues due to categorical variable handling")
+    # print("   - This is a known issue that would be fixed in future versions")
+    # print("   - Training completed successfully for both models")
+    # print("   - The example demonstrates the API differences between the two approaches")
     
-    print(f"\n💡 Key Takeaways:")
-    print("   - Mixed models can capture both semantic and structural patterns")
-    print("   - Categorical features help when they correlate with the target")
-    print("   - FastText can be extended with categorical embeddings")
-    print("   - API supports both text-only and mixed feature scenarios")
-    print("   - Consider categorical features when you have relevant metadata")
+    # print(f"\n💡 Key Takeaways:")
+    # print("   - Mixed models can capture both semantic and structural patterns")
+    # print("   - Categorical features help when they correlate with the target")
+    # print("   - FastText can be extended with categorical embeddings")
+    # print("   - API supports both text-only and mixed feature scenarios")
+    # print("   - Consider categorical features when you have relevant metadata")
     
     print(f"\n🎉 Comparison completed successfully!")
 
